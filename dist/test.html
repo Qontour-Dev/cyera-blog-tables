@@ -158,11 +158,12 @@
     '.ctb-btn--danger{color:#b42318}',
     '.ctb-editor{display:grid;grid-template-columns:minmax(0,1fr) 40px;gap:6px}',
     '.ctb-grid-wrap{overflow-x:auto;border:1px solid var(--b-line);border-radius:8px;background:#fff}',
-    '.ctb-add{border:1px dashed var(--b-line);border-radius:8px;background:#faf9f6;color:var(--b-purple);font:inherit;font-size:13px;font-weight:500;cursor:pointer}',
+    '.ctb-add{display:flex;align-items:center;justify-content:center;border:1px dashed var(--b-line);border-radius:8px;background:#faf9f6;color:var(--b-purple);font:inherit;font-size:13px;font-weight:500;cursor:pointer}',
     '.ctb-add:hover{border-color:var(--b-purple);background:#f6e8ff}',
+    '.ctb-add-inner{display:inline-flex;align-items:center;gap:6px;line-height:1}',
+    '.ctb-add-inner svg{width:14px;height:14px;flex:none}',
     '.ctb-add--row{grid-column:1;padding:8px}',
-    '.ctb-add--col{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;font-size:18px}',
-    '.ctb-add--col span{writing-mode:vertical-rl;transform:rotate(180deg);font-size:13px}',
+    '.ctb-add--col .ctb-add-inner{writing-mode:vertical-rl;transform:rotate(180deg)}',
     '.ctb-grid{border-collapse:collapse;width:100%}',
     '.ctb-grid td{border:1px solid var(--b-line);padding:0;vertical-align:top;min-width:140px}',
     '.ctb-grid td.ctb-head textarea{background:#f6e8ff;font-weight:500}',
@@ -187,6 +188,8 @@
   style.textContent = css;
   document.head.appendChild(style);
 
+  var PLUS = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>';
+
   root.innerHTML =
     '<div class="ctb-bar">' +
       '<label class="ctb-field">Layout<select data-k="layout">' +
@@ -205,8 +208,8 @@
     '<p class="ctb-help" data-hint></p>' +
     '<div class="ctb-editor">' +
       '<div class="ctb-grid-wrap"><table class="ctb-grid"></table></div>' +
-      '<button type="button" class="ctb-add ctb-add--col" data-act="addCol" title="Add a column on the right">+<span>Add column</span></button>' +
-      '<button type="button" class="ctb-add ctb-add--row" data-act="addRow" title="Add a row at the bottom">+ Add row</button>' +
+      '<button type="button" class="ctb-add ctb-add--col" data-act="addCol" title="Add a column on the right"><span class="ctb-add-inner">' + PLUS + '<span>Add column</span></span></button>' +
+      '<button type="button" class="ctb-add ctb-add--row" data-act="addRow" title="Add a row at the bottom"><span class="ctb-add-inner">' + PLUS + '<span>Add row</span></span></button>' +
     '</div>' +
     '<div class="ctb-notice" data-notice role="status" hidden><span data-notice-text></span><button type="button" class="ctb-undo" data-act="undo">Undo</button></div>' +
     '<h2>Preview</h2>' +
