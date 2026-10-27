@@ -12,12 +12,15 @@ const js = src('builder.js');
 const VERSION = 'v1.0.2';
 const CDN = `https://cdn.jsdelivr.net/gh/Qontour-Dev/cyera-blog-tables@${VERSION}/dist`;
 
+// Explains the snippet to anyone who finds it in Webflow's custom code.
+const NOTE = '<!-- Cyera blog tables: styles for tables made with the Blog Table Builder (/blog-table-builder) and pasted into posts as HTML embeds. Source and how to update: https://github.com/Qontour-Dev/cyera-blog-tables -->';
+
 const out = {
   // Files served by jsDelivr for the builder page.
   'blog-tables.min.css': `${css}\n`,
   'builder.js': js,
   // 1. Blog post template: Page settings > Custom code > Inside <head> tag (inline, so live posts never depend on the CDN)
-  'blog-template-head.html': `<style>${css}</style>\n`,
+  'blog-template-head.html': `${NOTE}\n<style>${css}</style>\n`,
   // 2. Hidden builder page: Page settings > Custom code > Before </body> tag (loads the release from jsDelivr)
   'builder-page-body-cdn.html': `<link rel="stylesheet" href="${CDN}/blog-tables.min.css">\n<div id="cy-table-builder"></div>\n<script src="${CDN}/builder.js"></script>\n`,
   // 2b. Same page without the CDN (everything inline), as a fallback.
