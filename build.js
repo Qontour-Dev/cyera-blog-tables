@@ -8,10 +8,19 @@ const minCss = css => css.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\s+/g, ' ').
 const css = minCss(src('blog-tables.css'));
 const js = src('builder.js');
 
+// Release served by jsDelivr from the public GitHub repo. Bump with each tagged release.
+const VERSION = 'v1.0.0';
+const CDN = `https://cdn.jsdelivr.net/gh/Qontour-Dev/cyera-blog-tables@${VERSION}/dist`;
+
 const out = {
-  // 1. Blog post template: Page settings > Custom code > Inside <head> tag
+  // Files served by jsDelivr for the builder page.
+  'blog-tables.min.css': `${css}\n`,
+  'builder.js': js,
+  // 1. Blog post template: Page settings > Custom code > Inside <head> tag (inline, so live posts never depend on the CDN)
   'blog-template-head.html': `<style>${css}</style>\n`,
-  // 2. Hidden builder page: Page settings > Custom code > Before </body> tag
+  // 2. Hidden builder page: Page settings > Custom code > Before </body> tag (loads the release from jsDelivr)
+  'builder-page-body-cdn.html': `<link rel="stylesheet" href="${CDN}/blog-tables.min.css">\n<div id="cy-table-builder"></div>\n<script src="${CDN}/builder.js"></script>\n`,
+  // 2b. Same page without the CDN (everything inline), as a fallback.
   'builder-page-body.html': `<style>${css}</style>\n<div id="cy-table-builder"></div>\n<script>\n${js}</script>\n`,
 };
 
@@ -31,6 +40,5 @@ fs.writeFileSync(path.join(__dirname, 'dist', 'test.html'),
 ${live.map(h => `<link rel="stylesheet" href="${h}">`).join('\n')}
 </head><body>
 ${out['builder-page-body.html']}
-<div style="max-width:760px;margin:40px auto;padding:0 16px"><h2>In a blog post</h2><div class="blog-text-rich-text w-richtext" id="in-post"></div></div>
 </body></html>`);
 console.log('test.html written');

@@ -145,7 +145,7 @@
   // ---------- UI ----------
 
   var css = [
-    '#cy-table-builder{--b-line:#d4d2c8;--b-ink:#160923;--b-purple:#6d2d93;font-size:14px;color:var(--b-ink);max-width:1100px;margin:0 auto;padding:24px 16px 64px}',
+    '#cy-table-builder{--b-line:#d4d2c8;--b-ink:#160923;--b-purple:#6d2d93;font-size:14px;color:var(--b-ink)}',
     '#cy-table-builder h2{font-size:22px;margin:32px 0 12px}',
     '#cy-table-builder p.ctb-help{margin:0 0 12px;color:#5b5466;font-size:13px;line-height:1.5}',
     '.ctb-bar{display:flex;flex-wrap:wrap;gap:16px;align-items:flex-end;margin-bottom:16px}',
@@ -156,7 +156,13 @@
     '.ctb-btn:hover{border-color:var(--b-purple)}',
     '.ctb-btn--main{background:var(--b-purple);border-color:var(--b-purple);color:#fff}',
     '.ctb-btn--danger{color:#b42318}',
+    '.ctb-editor{display:grid;grid-template-columns:minmax(0,1fr) 40px;gap:6px}',
     '.ctb-grid-wrap{overflow-x:auto;border:1px solid var(--b-line);border-radius:8px;background:#fff}',
+    '.ctb-add{border:1px dashed var(--b-line);border-radius:8px;background:#faf9f6;color:var(--b-purple);font:inherit;font-size:13px;font-weight:500;cursor:pointer}',
+    '.ctb-add:hover{border-color:var(--b-purple);background:#f6e8ff}',
+    '.ctb-add--row{grid-column:1;padding:8px}',
+    '.ctb-add--col{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;font-size:18px}',
+    '.ctb-add--col span{writing-mode:vertical-rl;transform:rotate(180deg);font-size:13px}',
     '.ctb-grid{border-collapse:collapse;width:100%}',
     '.ctb-grid td{border:1px solid var(--b-line);padding:0;vertical-align:top;min-width:140px}',
     '.ctb-grid td.ctb-head textarea{background:#f6e8ff;font-weight:500}',
@@ -176,8 +182,6 @@
   document.head.appendChild(style);
 
   root.innerHTML =
-    '<h1 style="font-size:32px;margin:0 0 8px">Blog table builder</h1>' +
-    '<p class="ctb-help">Build a table, check the preview, then copy the code into an HTML embed in the blog post. To change a table later, paste its code in "Edit an existing table" at the bottom.</p>' +
     '<div class="ctb-bar">' +
       '<label class="ctb-field">Layout<select data-k="layout">' +
         '<option value="top">Header row on top</option>' +
@@ -190,22 +194,20 @@
         '<option value="auto">Automatic</option>' +
       '</select></label>' +
       '<label class="ctb-check" data-hl><input type="checkbox" data-k="highlightFirst"> Beige first column</label>' +
-      '<button type="button" class="ctb-btn" data-act="addRow">+ Row</button>' +
-      '<button type="button" class="ctb-btn" data-act="addCol">+ Column</button>' +
-      '<button type="button" class="ctb-btn ctb-btn--danger" data-act="clear">Start over</button>' +
+      '<button type="button" class="ctb-btn ctb-btn--danger" data-act="clear">Reset table</button>' +
     '</div>' +
     '<p class="ctb-help" data-hint></p>' +
-    '<div class="ctb-grid-wrap"><table class="ctb-grid"></table></div>' +
+    '<div class="ctb-editor">' +
+      '<div class="ctb-grid-wrap"><table class="ctb-grid"></table></div>' +
+      '<button type="button" class="ctb-add ctb-add--col" data-act="addCol" title="Add a column on the right">+<span>Add column</span></button>' +
+      '<button type="button" class="ctb-add ctb-add--row" data-act="addRow" title="Add a row at the bottom">+ Add row</button>' +
+    '</div>' +
     '<h2>Preview</h2>' +
     '<div class="ctb-preview"></div>' +
-    '<h2>Code to paste</h2>' +
-    '<p class="ctb-help">In the blog post, add an HTML embed where the table should go and paste this code.</p>' +
-    '<textarea class="ctb-out" readonly data-out></textarea>' +
-    '<div class="ctb-row"><button type="button" class="ctb-btn ctb-btn--main" data-act="copy">Copy code</button><span class="ctb-msg" data-copymsg></span><span class="ctb-help" data-count></span></div>' +
-    '<h2>Edit an existing table</h2>' +
-    '<p class="ctb-help">Paste the code of a table from a blog post here, then click Load. The table opens above for editing.</p>' +
-    '<textarea class="ctb-out" data-in placeholder="Paste table code here"></textarea>' +
-    '<div class="ctb-row"><button type="button" class="ctb-btn" data-act="load">Load table</button><span class="ctb-msg" data-loadmsg></span></div>';
+    '<h2>Table code</h2>' +
+    '<p class="ctb-help">Copy this code into an HTML embed in the blog post. To edit a table that is already in a post, paste its code here and it opens in the editor above.</p>' +
+    '<textarea class="ctb-out" data-out spellcheck="false"></textarea>' +
+    '<div class="ctb-row"><button type="button" class="ctb-btn ctb-btn--main" data-act="copy">Copy code</button><span class="ctb-msg" data-msg></span><span class="ctb-help" data-count></span></div>';
 
   var $ = function (sel) { return root.querySelector(sel); };
   var gridEl = $('.ctb-grid');
@@ -245,10 +247,11 @@
     ta.style.height = ta.scrollHeight + 2 + 'px';
   }
 
-  function renderOutput() {
+  // keepCode: leave the code box as the user typed or pasted it.
+  function renderOutput(keepCode) {
     var html = buildHtml();
     $('.ctb-preview').innerHTML = html;
-    $('[data-out]').value = html;
+    if (!keepCode) $('[data-out]').value = html;
     $('[data-count]').textContent = html.length.toLocaleString() + ' characters';
     save();
   }
@@ -305,6 +308,35 @@
     renderOutput();
   });
 
+  function message(text, isError) {
+    var m = $('[data-msg]');
+    m.className = 'ctb-msg' + (isError ? ' is-error' : '');
+    m.textContent = text;
+    clearTimeout(message.t);
+    if (text && !isError) message.t = setTimeout(function () { m.textContent = ''; }, 2500);
+  }
+
+  // Pasting or typing table code in the code box loads it into the editor.
+  var codeBox = $('[data-out]');
+  codeBox.addEventListener('input', function () {
+    var code = codeBox.value.trim();
+    if (!code) { message(''); return; }
+    try {
+      state = parseHtml(code);
+    } catch (err) {
+      message('This is not a table from this builder. Paste the full table code.', true);
+      return;
+    }
+    renderControls();
+    renderGrid();
+    renderOutput(true);
+    message('Table loaded. Edit it above.');
+  });
+  codeBox.addEventListener('blur', function () {
+    if ($('[data-msg]').classList.contains('is-error')) return;
+    renderOutput();
+  });
+
   gridEl.addEventListener('click', function (e) {
     var b = e.target;
     if (b.dataset.delrow !== undefined) {
@@ -329,33 +361,21 @@
   });
 
   root.addEventListener('click', function (e) {
-    var act = e.target.dataset.act;
+    var btn = e.target.closest('[data-act]');
+    var act = btn && btn.dataset.act;
     if (!act) return;
     if (act === 'addRow') state.cells.push(new Array(cols()).fill(''));
     if (act === 'addCol') state.cells.forEach(function (row) { row.push(''); });
     if (act === 'clear') {
-      if (!confirm('Clear the table and start over?')) return;
+      if (!confirm('Reset the table? This clears all cells and settings.')) return;
       state = newState();
     }
     if (act === 'copy') {
       var out = $('[data-out]');
-      var done = function () { $('[data-copymsg]').textContent = 'Copied.'; setTimeout(function () { $('[data-copymsg]').textContent = ''; }, 2000); };
+      var done = function () { message('Copied.'); };
       if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(out.value).then(done, function () { out.select(); document.execCommand('copy'); done(); });
       else { out.select(); document.execCommand('copy'); done(); }
       return;
-    }
-    if (act === 'load') {
-      var msg = $('[data-loadmsg]');
-      try {
-        state = parseHtml($('[data-in]').value);
-        msg.className = 'ctb-msg';
-        msg.textContent = 'Table loaded. Edit it above.';
-        $('[data-in]').value = '';
-      } catch (err) {
-        msg.className = 'ctb-msg is-error';
-        msg.textContent = err.message;
-        return;
-      }
     }
     renderAll();
   });
@@ -367,5 +387,4 @@
 })();
 </script>
 
-<div style="max-width:760px;margin:40px auto;padding:0 16px"><h2>In a blog post</h2><div class="blog-text-rich-text w-richtext" id="in-post"></div></div>
 </body></html>

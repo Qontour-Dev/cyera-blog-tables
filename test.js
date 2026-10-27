@@ -33,6 +33,8 @@ const samples = {
   page.on('pageerror', e => errors.push(e.message));
   await page.setViewport({ width: 1280, height: 900 });
   await page.goto(PAGE, { waitUntil: 'networkidle0' });
+  // Test-only blog post area (not part of the builder)
+  await page.evaluate(() => { const d = document.createElement('div'); d.style.cssText = 'max-width:760px;margin:40px auto;padding:0 16px'; d.innerHTML = '<div class="blog-text-rich-text w-richtext" id="in-post"></div>'; document.body.appendChild(d); });
 
   check('builder mounted', await page.$eval('#cy-table-builder', el => !!el.querySelector('.ctb-grid textarea')));
 
@@ -105,10 +107,18 @@ const samples = {
   check('paste from spreadsheet grows the grid', JSON.stringify(pasted) === JSON.stringify([['A', 'B', 'C'], ['1', '2', '3'], ['4', '5', '6']]), JSON.stringify(pasted));
 
   // Load an existing table through the UI
-  await page.evaluate(() => { document.querySelector('[data-in]').value = '<div class="cy-table cy-table--header-left cy-table--first-narrow"><table><tbody><tr><th scope="row">Row</th><td>Value</td></tr></tbody></table></div>'; });
-  await page.click('[data-act="load"]');
+  await page.evaluate(() => { const b = document.querySelector('[data-out]'); b.value = '<div class="cy-table cy-table--header-left cy-table--first-narrow"><table><tbody><tr><th scope="row">Row</th><td>Value</td></tr></tbody></table></div>'; b.dispatchEvent(new Event('input', { bubbles: true })); });
   const loaded = await page.evaluate(() => window.__cyTableBuilder.getState());
-  check('load existing table', loaded.layout === 'left' && loaded.cells[0][1] === 'Value');
+  check('paste code into code box loads table', loaded.layout === 'left' && loaded.cells[0][1] === 'Value' && (await page.$eval('textarea[data-r="0"][data-c="1"]', x => x.value)) === 'Value');
+  await page.evaluate(() => { const b = document.querySelector('[data-out]'); b.value = 'hello'; b.dispatchEvent(new Event('input', { bubbles: true })); });
+  check('bad code shows error, keeps table', (await page.$eval('[data-msg]', m => m.classList.contains('is-error'))) && (await page.evaluate(() => window.__cyTableBuilder.getState().cells[0][1])) === 'Value');
+
+  // Add row / add column buttons next to the grid
+  await page.evaluate(() => window.__cyTableBuilder.setState({ layout: 'top', firstCol: 'narrow', highlightFirst: true, cells: [['a', 'b'], ['c', 'd']] }));
+  await page.click('.ctb-add--row');
+  await page.click('.ctb-add--col');
+  const size = await page.evaluate(() => { const c = window.__cyTableBuilder.getState().cells; return c.length + 'x' + c[0].length; });
+  check('add row and add column buttons', size === '3x3', size);
 
   // Builder screenshot
   await page.evaluate(st => window.__cyTableBuilder.setState(st), samples.top);
