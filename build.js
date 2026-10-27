@@ -9,7 +9,7 @@ const css = minCss(src('blog-tables.css'));
 const js = src('builder.js');
 
 // Release served by jsDelivr from the public GitHub repo. Bump with each tagged release.
-const VERSION = 'v1.0.0';
+const VERSION = 'v1.0.1';
 const CDN = `https://cdn.jsdelivr.net/gh/Qontour-Dev/cyera-blog-tables@${VERSION}/dist`;
 
 const out = {

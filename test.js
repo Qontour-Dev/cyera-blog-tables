@@ -120,6 +120,22 @@ const samples = {
   const size = await page.evaluate(() => { const c = window.__cyTableBuilder.getState().cells; return c.length + 'x' + c[0].length; });
   check('add row and add column buttons', size === '3x3', size);
 
+  // Delete buttons: trash icon with a clear label, tint before deleting, and undo
+  await page.evaluate(() => window.__cyTableBuilder.setState({ layout: 'top', firstCol: 'narrow', highlightFirst: true, cells: [['a', 'b'], ['c', 'd'], ['e', 'f']] }));
+  const delRow = await page.$('[data-delrow="1"]');
+  check('delete button is a labelled trash icon', (await delRow.evaluate(b => b.getAttribute('aria-label') === 'Delete row 2' && !!b.querySelector('svg'))));
+  await delRow.hover();
+  check('hover tints the row to delete', await page.evaluate(() => document.querySelectorAll('td.is-doomed textarea[data-r="1"]').length === 2 && document.querySelectorAll('td.is-doomed').length === 2));
+  await delRow.click();
+  const afterDel = await page.evaluate(() => window.__cyTableBuilder.getState().cells.map(r => r.join('')).join(','));
+  check('delete row removes it and shows undo', afterDel === 'ab,ef' && await page.$eval('[data-notice]', n => !n.hidden && n.textContent.includes('Row 2 deleted')), afterDel);
+  await page.click('[data-act="undo"]');
+  const afterUndo = await page.evaluate(() => window.__cyTableBuilder.getState().cells.map(r => r.join('')).join(','));
+  check('undo restores the row', afterUndo === 'ab,cd,ef' && await page.$eval('[data-notice]', n => n.hidden), afterUndo);
+  await page.click('[data-delcolumn="0"]');
+  const afterCol = await page.evaluate(() => window.__cyTableBuilder.getState().cells.map(r => r.join('')).join(','));
+  check('delete column works', afterCol === 'b,d,f' && await page.$eval('[data-notice-text]', n => n.textContent === 'Column 1 deleted.'), afterCol);
+
   // Builder screenshot
   await page.evaluate(st => window.__cyTableBuilder.setState(st), samples.top);
   await page.screenshot({ path: path.join(SHOTS, 'builder.png'), fullPage: true });

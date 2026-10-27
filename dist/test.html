@@ -169,7 +169,13 @@
     '.ctb-grid textarea{display:block;width:100%;min-height:56px;border:0;padding:8px;font:inherit;font-size:13px;resize:vertical;box-sizing:border-box;color:var(--b-ink)}',
     '.ctb-grid textarea:focus{outline:2px solid var(--b-purple);outline-offset:-2px}',
     '.ctb-grid .ctb-ctl{min-width:0;width:34px;text-align:center;vertical-align:middle;background:#faf9f6;border-color:transparent}',
-    '.ctb-x{border:0;background:none;color:#b42318;cursor:pointer;font-size:16px;line-height:1;padding:4px}',
+    '.ctb-x{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border:0;border-radius:6px;background:none;color:#8a8394;cursor:pointer;padding:0}',
+    '.ctb-x svg{width:16px;height:16px;pointer-events:none}',
+    '.ctb-x:hover,.ctb-x:focus-visible{color:#b42318;background:#fdecea;outline:none}',
+    '.ctb-grid td.is-doomed textarea{background:#fdecea}',
+    '.ctb-notice{display:flex;gap:10px;align-items:center;margin-top:8px;font-size:13px;color:var(--b-ink)}',
+    '.ctb-notice[hidden]{display:none}',
+    '.ctb-undo{border:0;background:none;padding:0;font:inherit;font-weight:600;color:var(--b-purple);text-decoration:underline;cursor:pointer}',
     '.ctb-out{width:100%;min-height:120px;font-family:ui-monospace,Consolas,monospace;font-size:12px;padding:10px;border:1px solid var(--b-line);border-radius:6px;box-sizing:border-box}',
     '.ctb-row{display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap}',
     '.ctb-msg{font-size:13px;color:#2b7a3d}',
@@ -202,6 +208,7 @@
       '<button type="button" class="ctb-add ctb-add--col" data-act="addCol" title="Add a column on the right">+<span>Add column</span></button>' +
       '<button type="button" class="ctb-add ctb-add--row" data-act="addRow" title="Add a row at the bottom">+ Add row</button>' +
     '</div>' +
+    '<div class="ctb-notice" data-notice role="status" hidden><span data-notice-text></span><button type="button" class="ctb-undo" data-act="undo">Undo</button></div>' +
     '<h2>Preview</h2>' +
     '<div class="ctb-preview"></div>' +
     '<h2>Table code</h2>' +
@@ -225,14 +232,21 @@
     return state.layout === 'left' ? c === 0 : r === 0;
   }
 
+  var TRASH = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6"/></svg>';
+
+  function delButton(kind, i) {
+    var label = 'Delete ' + kind + ' ' + (i + 1);
+    return '<button type="button" class="ctb-x" title="' + label + '" aria-label="' + label + '" data-del' + kind + '="' + i + '">' + TRASH + '</button>';
+  }
+
   function renderGrid() {
     var html = '<tr><td class="ctb-ctl"></td>';
     for (var c = 0; c < cols(); c++) {
-      html += '<td class="ctb-ctl">' + (cols() > 1 ? '<button type="button" class="ctb-x" title="Delete column" data-delcol="' + c + '">×</button>' : '') + '</td>';
+      html += '<td class="ctb-ctl">' + (cols() > 1 ? delButton('column', c) : '') + '</td>';
     }
     html += '</tr>';
     state.cells.forEach(function (row, r) {
-      html += '<tr><td class="ctb-ctl">' + (rows() > 1 ? '<button type="button" class="ctb-x" title="Delete row" data-delrow="' + r + '">×</button>' : '') + '</td>';
+      html += '<tr><td class="ctb-ctl">' + (rows() > 1 ? delButton('row', r) : '') + '</td>';
       row.forEach(function (t, c) {
         html += '<td class="' + (isHeadCell(r, c) ? 'ctb-head' : '') + '"><textarea data-r="' + r + '" data-c="' + c + '" aria-label="Row ' + (r + 1) + ', column ' + (c + 1) + '">' + esc(t) + '</textarea></td>';
       });
@@ -337,14 +351,40 @@
     renderOutput();
   });
 
+  // Tint the cells a delete button would remove, so users see it before they click.
+  function markDoomed(b, on) {
+    if (!b) return;
+    var sel = b.dataset.delrow !== undefined ? 'textarea[data-r="' + b.dataset.delrow + '"]' : 'textarea[data-c="' + b.dataset.delcolumn + '"]';
+    gridEl.querySelectorAll(sel).forEach(function (ta) { ta.parentNode.classList.toggle('is-doomed', on); });
+  }
+  ['mouseover', 'focusin'].forEach(function (ev) {
+    gridEl.addEventListener(ev, function (e) { markDoomed(e.target.closest('.ctb-x'), true); });
+  });
+  ['mouseout', 'focusout'].forEach(function (ev) {
+    gridEl.addEventListener(ev, function (e) { markDoomed(e.target.closest('.ctb-x'), false); });
+  });
+
+  var undoState = null;
+  function notice(text) {
+    var n = $('[data-notice]');
+    $('[data-notice-text]').textContent = text;
+    n.hidden = !text;
+    clearTimeout(notice.t);
+    if (text) notice.t = setTimeout(function () { n.hidden = true; undoState = null; }, 10000);
+  }
+
   gridEl.addEventListener('click', function (e) {
-    var b = e.target;
+    var b = e.target.closest('.ctb-x');
+    if (!b) return;
+    undoState = JSON.parse(JSON.stringify(state));
     if (b.dataset.delrow !== undefined) {
       state.cells.splice(+b.dataset.delrow, 1);
-    } else if (b.dataset.delcol !== undefined) {
-      var c = +b.dataset.delcol;
+      notice('Row ' + (+b.dataset.delrow + 1) + ' deleted.');
+    } else {
+      var c = +b.dataset.delcolumn;
       state.cells.forEach(function (row) { row.splice(c, 1); });
-    } else return;
+      notice('Column ' + (c + 1) + ' deleted.');
+    }
     renderGrid();
     renderOutput();
   });
@@ -366,6 +406,12 @@
     if (!act) return;
     if (act === 'addRow') state.cells.push(new Array(cols()).fill(''));
     if (act === 'addCol') state.cells.forEach(function (row) { row.push(''); });
+    if (act === 'undo') {
+      if (!undoState) return;
+      state = undoState;
+      undoState = null;
+      notice('');
+    }
     if (act === 'clear') {
       if (!confirm('Reset the table? This clears all cells and settings.')) return;
       state = newState();
